@@ -184,3 +184,6 @@ targ_lang.word_index: {'<start>': 1, '<end>': 2, '.': 3, 'i': 4, 'tom': 5, 'you'
 
   ![](./img/attention.png)
 
+- Uncertainty & 결론 
+
+  추후.
