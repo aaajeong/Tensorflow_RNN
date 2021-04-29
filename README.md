@@ -187,3 +187,14 @@ targ_lang.word_index: {'<start>': 1, '<end>': 2, '.': 3, 'i': 4, 'tom': 5, 'you'
 - Uncertainty & 결론 
 
   추후.
+
+
+
+### 4. Keras Seq2Seq 활용 번역 예제
+
+---
+
+참고 : https://tykimos.github.io/2018/09/14/ten-minute_introduction_to_sequence-to-sequence_learning_in_Keras/
+
+👉 코드 실행은 했지만 이해가 좀 더 필요함
+
