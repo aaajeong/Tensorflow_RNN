@@ -196,5 +196,10 @@ targ_lang.word_index: {'<start>': 1, '<end>': 2, '.': 3, 'i': 4, 'tom': 5, 'you'
 
 참고 : https://tykimos.github.io/2018/09/14/ten-minute_introduction_to_sequence-to-sequence_learning_in_Keras/
 
+코드 : [lstm_seq2seq.py](https://github.com/aaajeong/RNN-Translation/tree/main/Keras_seq2seq)
+
 👉 코드 실행은 했지만 이해가 좀 더 필요함
+
+- Saved_model.pb(파일) : 그래프를 저장하고 있는 모델 바이너리 파일
+- variables(디렉토리) : 디렉토리로 변수 값을 저장하고 있는 파일들이 저장되어 있다.
 
