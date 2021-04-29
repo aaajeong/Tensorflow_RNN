@@ -1,7 +1,7 @@
-# Tensorflow_RNN
-Tensorflow RNN 
+# 🎓 RNN Translation 🎓
+RNN 을 활용한 기계번역  
 
-Tensorflow 을 이용한 RNN 공부 & 예제 실습
+Tensorflow  / Keras 을 이용한 RNN 공부 & 예제 실습
 
 
 
