@@ -188,7 +188,208 @@ targ_lang.word_index: {'<start>': 1, '<end>': 2, '.': 3, 'i': 4, 'tom': 5, 'you'
 
   추후.
 
+- Checkpoint 사용 : 학습 매개변수 저장 
 
+  ```python
+  # 체크포인트 저장 경로 설정 & 객체 생성
+  checkpoint_dir = './training_checkpoints'
+  checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
+  checkpoint = tf.train.Checkpoint(optimizer=optimizer,
+                                   encoder=encoder,
+                                   decoder=decoder)                 
+  ...
+  ...
+  
+  # 학습 시작
+  EPOCHS = 10
+  
+  for each in range(EPOCHS):
+  	start = time.time()
+  	...
+  	..
+  	# 에포크가 2번 실행될때 마다 모델 저장 (체크포인트)
+  	if (epoch + 1) % 2 == 0:
+  		checkpoint.save(file_prefix = checkpoint_prefix)
+  ...
+  ...
+  
+  # checkpoint_dir내에 있는 최근 체크포인트(checkpoint)를 복원
+  checkpoint.restore(tf.train.latest_checkpoint(checkpoint_dir))
+  ```
+
+  
+
+## 🔎 RNN Time-Step 중간 값을 임의로 바꿨을 때 다음 단어의 샘플링에 영향이 있을까?
+
+**1) 원래 코드**
+
+```python
+def evaluate(sentence):
+...
+predicted_id = tf.argmax(predictions[0]).numpy()	
+```
+
+- Time-step 에서 다음 단어로 넘어갈 때 가장 큰 확률 값을 가진 id 반환
+
+**2) 바꾼 코드**
+
+```python
+def evaluate(sentence):
+  ...
+  # 예측된 5개의 id 에 해당하는 단어 출력
+      for i in predicted_id_list:
+          print(i, ' : ', targ_lang.index_word[i])
+
+      # 다음 나올 단어 입력
+      predicted_id = int(input("다음 단어의 ID 를 입력하세요 : "))
+  #     predicted_id = max(predicted_id_list)
+
+      print('predicted_id_list : ', predicted_id_list)
+	...
+```
+
+- Time - step 에서 다음 단어로 넘어갈 때 제일 큰 확률을 가진 5개 후보 리스트 샘플링
+
+- 그 중 다음 단어 임의로 변경
+
+- **그 때 영향 체크** 👉 다음 단어 확률 리스트의 변화가 있는가? 즉, predicted_id[0] 에서 확률 값의 변화가 있는가를 체크
+
+- 예제 - 올바른 번역
+
+  ```python
+  translate(u'hace mucho frio aqui.')  # it s very cold here
+  ```
+
+  ```text
+  sentence: <start> esta es mi vida . <end>
+  19  :  this
+  10  :  it
+  18  :  m
+  8  :  is
+  259  :  idea
+  다음 단어의 ID 를 입력하세요 : 10
+  predicted_id_list :  [19, 10, 18, 8, 259]
+  argmax 한 predicted_id :  10
+  result:  it 
+  for 문 후 dec_input :  tf.Tensor([[10]], shape=(1, 1), dtype=int32)
+  11  :  s
+  8  :  is
+  88  :  look
+  134  :  job
+  2178  :  ticked
+  다음 단어의 ID 를 입력하세요 : 8
+  predicted_id_list :  [11, 8, 88, 134, 2178]
+  argmax 한 predicted_id :  8
+  result:  it is 
+  for 문 후 dec_input :  tf.Tensor([[8]], shape=(1, 1), dtype=int32)
+  21  :  my
+  197  :  over
+  188  :  everyone
+  19  :  this
+  52  :  how
+  다음 단어의 ID 를 입력하세요 : 21
+  predicted_id_list :  [21, 197, 188, 19, 52]
+  argmax 한 predicted_id :  21
+  result:  it is my 
+  for 문 후 dec_input :  tf.Tensor([[21]], shape=(1, 1), dtype=int32)
+  189  :  life
+  1494  :  twin
+  225  :  hungry
+  310  :  wife
+  344  :  hands
+  다음 단어의 ID 를 입력하세요 : 189
+  predicted_id_list :  [189, 1494, 225, 310, 344]
+  argmax 한 predicted_id :  189
+  result:  it is my life 
+  for 문 후 dec_input :  tf.Tensor([[189]], shape=(1, 1), dtype=int32)
+  3  :  .
+  36  :  go
+  10  :  it
+  7  :  ?
+  35  :  like
+  다음 단어의 ID 를 입력하세요 : 3
+  predicted_id_list :  [3, 36, 10, 7, 35]
+  argmax 한 predicted_id :  3
+  result:  it is my life . 
+  for 문 후 dec_input :  tf.Tensor([[3]], shape=(1, 1), dtype=int32)
+  2  :  <end>
+  36  :  go
+  192  :  hurt
+  7  :  ?
+  1501  :  overslept
+  다음 단어의 ID 를 입력하세요 : 2
+  predicted_id_list :  [2, 36, 192, 7, 1501]
+  argmax 한 predicted_id :  2
+  result:  it is my life . <end> 
+  Input: <start> esta es mi vida . <end>
+  Predicted translation: it is my life . <end>
+  
+  ```
+
+- 예제 - 잘못된 번역
+
+  ```python
+  translate(u'Te quiero')   # I love you
+  ```
+
+  👉 원래 코드로 돌리면 **"I want you"** 라고 잘못 번역되는데, 내가 임의로 다음 단어를 선택했을 땐 **"I like you"** 라고 번역이 가능해진다.
+
+  ```text
+  sentence: <start> te quiero <end>
+  4  :  i
+  45  :  mary
+  15  :  to
+  69  :  good
+  5  :  tom
+  다음 단어의 ID 를 입력하세요 : 4
+  predicted_id_list :  [4, 45, 15, 69, 5]
+  argmax 한 predicted_id :  4
+  result:  i 
+  for 문 후 dec_input :  tf.Tensor([[4]], shape=(1, 1), dtype=int32)
+  47  :  want
+  76  :  got
+  35  :  like
+  60  :  who
+  37  :  !
+  다음 단어의 ID 를 입력하세요 : 35
+  predicted_id_list :  [47, 76, 35, 60, 37]
+  argmax 한 predicted_id :  35
+  result:  i like 
+  for 문 후 dec_input :  tf.Tensor([[35]], shape=(1, 1), dtype=int32)
+  6  :  you
+  9  :  a
+  14  :  he
+  123  :  should
+  13  :  the
+  다음 단어의 ID 를 입력하세요 : 6
+  predicted_id_list :  [6, 9, 14, 123, 13]
+  argmax 한 predicted_id :  6
+  result:  i like you 
+  for 문 후 dec_input :  tf.Tensor([[6]], shape=(1, 1), dtype=int32)
+  24  :  are
+  3  :  .
+  22  :  do
+  44  :  on
+  14  :  he
+  다음 단어의 ID 를 입력하세요 : 3
+  predicted_id_list :  [24, 3, 22, 44, 14]
+  argmax 한 predicted_id :  3
+  result:  i like you . 
+  for 문 후 dec_input :  tf.Tensor([[3]], shape=(1, 1), dtype=int32)
+  2  :  <end>
+  5  :  tom
+  3  :  .
+  56  :  please
+  38  :  ll
+  다음 단어의 ID 를 입력하세요 : 2
+  predicted_id_list :  [2, 5, 3, 56, 38]
+  argmax 한 predicted_id :  2
+  result:  i like you . <end> 
+  Input: <start> te quiero <end>
+  Predicted translation: i like you . <end> 
+  ```
+
+  
 
 ### 4. Keras Seq2Seq 활용 번역 예제
 
@@ -196,5 +397,10 @@ targ_lang.word_index: {'<start>': 1, '<end>': 2, '.': 3, 'i': 4, 'tom': 5, 'you'
 
 참고 : https://tykimos.github.io/2018/09/14/ten-minute_introduction_to_sequence-to-sequence_learning_in_Keras/
 
+코드 : [lstm_seq2seq.py](https://github.com/aaajeong/RNN-Translation/tree/main/Keras_seq2seq)
+
 👉 코드 실행은 했지만 이해가 좀 더 필요함
+
+- Saved_model.pb(파일) : 그래프를 저장하고 있는 모델 바이너리 파일
+- variables(디렉토리) : 디렉토리로 변수 값을 저장하고 있는 파일들이 저장되어 있다.
 
