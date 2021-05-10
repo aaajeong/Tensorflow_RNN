@@ -231,7 +231,7 @@ predicted_id = tf.argmax(predictions[0]).numpy()
 
 - Time-step 에서 다음 단어로 넘어갈 때 가장 큰 확률 값을 가진 id 반환
 
-**2) 바꾼 코드**
+**2) 바꾼 코드** (nmt_with_attetion_Test.ipynb)
 
 ```python
 def evaluate(sentence):
@@ -389,7 +389,166 @@ def evaluate(sentence):
   Predicted translation: i like you . <end> 
   ```
 
+
+
+
+### 🔥 RNN 의 Time-Step 마다 Ensemble VS 단일 RNN 정확도 비교🔥
+
+---
+
+**1) 코드 - nmt_with_attention_Ensemble.ipynb**
+
+[데이터셋 / 코드](https://drive.google.com/drive/u/0/folders/1qcxwwB53GDOR2mxSADO2rbGQ9VpbMSME)
+
+- 데이터 전처리
+
+  ```python
+  # 1. 문장에 있는 억양을 제거합니다.
+  # 2. 불필요한 문자를 제거하여 문장을 정리합니다.
+  # 3. 다음과 같은 형식으로 문장의 쌍을 반환합니다: [영어, 스페인어]
+  def create_dataset(path, num_examples, range):
+    lines = io.open(path, encoding='UTF-8').read().strip().split('\n')
   
+    # 데이터셋 range 만큼 잘라서 학습
+    word_pairs = [[preprocess_sentence(w) for w in l.split('\t')]  for l in lines[(num_examples*range):(num_examples*(range+1))]]
+  
+    return zip(*word_pairs)
+  ```
+
+  ```python
+  # language 가 들어오면 공백 단위로 토큰화
+  def tokenize(lang):
+    ...
+    return tensor, lang_tokenizer
+  ```
+
+  ```python
+  def load_dataset(path, range, num_examples=None):
+    # 전처리된 타겟 문장과 입력 문장 쌍을 생성합니다.
+    targ_lang, inp_lang = create_dataset(path, num_examples, range)
+  	...
+    return input_tensor, target_tensor, inp_lang_tokenizer, targ_lang_tokenizer
+  ```
+
+  ```python
+  # 언어 데이터셋을 아래의 크기로 제한하여 훈련과 검증을 수행합니다.
+  num_examples = 30000
+  
+  # 각 모델 별 데이터셋 불러오기
+  input_tensor, target_tensor, inp_lang, targ_lang = load_dataset(path_to_file, 0, num_examples)
+  input_tensor2, target_tensor2, inp_lang2, targ_lang2 = load_dataset(path_to_file, 1, num_examples)
+  input_tensor3, target_tensor3, inp_lang3, targ_lang3 = load_dataset(path_to_file, 2, num_examples)
+  
+  
+  # 각 모델 별로 타겟 텐서와 입력 텐서의 최대 길이를 계산합니다.
+  max_length_targ, max_length_inp = target_tensor.shape[1], input_tensor.shape[1]
+  max_length_targ2, max_length_inp2 = target_tensor2.shape[1], input_tensor2.shape[1]
+  max_length_targ3, max_length_inp3 = target_tensor3.shape[1], input_tensor3.shape[1]
+  
+  # print(max_length_targ, max_length_inp)
+  # print(max_length_targ2, max_length_inp2)
+  # print(max_length_targ3, max_length_inp3)
+  ```
+
+- 각 모델 별 Encoder & Decoder 
+
+  같은 구조의 모델이지만 다른 데이터셋 때문에 일단은 따로 만들어서 테스트 하였다. 동시에 할 수 있는 방법이 있다면 고칠 것.
+
+  ```python 
+  ...
+  encoder = Encoder(vocab_inp_size, embedding_dim, units, BATCH_SIZE)
+  encoder2 = Encoder(vocab_inp_size2, embedding_dim, units, BATCH_SIZE)
+  encoder3 = Encoder(vocab_inp_size3, embedding_dim, units, BATCH_SIZE)
+  ...
+  decoder = Decoder(vocab_tar_size, embedding_dim, units, BATCH_SIZE)
+  decoder2 = Decoder(vocab_tar_size2, embedding_dim, units, BATCH_SIZE)
+  decoder3 = Decoder(vocab_tar_size3, embedding_dim, units, BATCH_SIZE)
+  ...
+  ```
+
+- 각 모델 별 체크포인트 저장
+
+  서로 다른 데이터 셋 에서 훈련한 매개변수를 각각 저장한다.
+
+  ```python 
+  # 여기서 학습한 매개변수를 저장, optimizer/encoder/decoder
+  checkpoint_dir = '/content/drive/MyDrive/Colab Notebooks/training_checkpoints'
+  checkpoint_dir2 = '/content/drive/MyDrive/Colab Notebooks/training_checkpoints_2'
+  checkpoint_dir3 = '/content/drive/MyDrive/Colab Notebooks/training_checkpoints_3'
+  
+  # checkpoint_prefix = os.path.join(checkpoint_dir, "ckpt")
+  checkpoint = tf.train.Checkpoint(optimizer=optimizer,
+                                   encoder=encoder,
+                                   decoder=decoder)
+  checkpoint2 = tf.train.Checkpoint(optimizer=optimizer,
+                                   encoder=encoder2,
+                                   decoder=decoder2)
+  checkpoint3 = tf.train.Checkpoint(optimizer=optimizer,
+                                   encoder=encoder3,
+                                   decoder=decoder3)
+  ```
+
+- 각 모델 별 time-step prediction 후 voting 방식을 통해 다음 input 결정
+
+  ```python
+  def evaluate(sentence):
+  ...
+  predicted_id = tf.argmax(predictions[0]).numpy() 
+      predicted_id2 = tf.argmax(predictions2[0]).numpy() 
+      predicted_id3 = tf.argmax(predictions3[0]).numpy() 
+  
+      voting = {}
+      if predicted_id not in voting:
+        voting[predicted_id] = 1
+      else :
+        voting[predicted_id] += 1
+      
+      if predicted_id2 not in voting:
+        voting[predicted_id2] = 1
+      else :
+        voting[predicted_id2] += 1
+      
+      if predicted_id3 not in voting:
+        voting[predicted_id3] = 1
+      else :
+        voting[predicted_id3] += 1
+      print(voting)
+      # print(max(voting,key=voting.get)) # di.get 이용
+  
+      voting_id = max(voting,key=voting.get)
+  
+      result += targ_lang.index_word[voting_id] + ' '
+      print('result: ', result)
+  
+      if targ_lang.index_word[voting_id] == '<end>':
+        # return result, sentence, attention_plot
+        return result, sentence
+  
+      # 예측된 ID를 모델에 다시 피드합니다.
+      dec_input = tf.expand_dims([voting_id], 0)
+      print("for 문 후 dec_input : ", dec_input)
+      ...
+  ```
+
+**2) RNN-Ensemble 번역 테스트**
+
+- 잘 된 예제
+
+  ```python 
+  translate(u'esta es mi vida.')  # this is my life
+  Input: <start> esta es mi vida . <end>
+  Predicted translation: this is my life . <end> 
+  ```
+
+- 잘 안된 예제
+
+  ```python
+  translate(u'Te quiero')   # I love you
+  Input: <start> te quiero <end>
+  Predicted translation: it s want you are overworked . <end> 
+  ```
+
+  - 2개의 모델은 **it**, 1개 모델은 **I** 를 출력했지만 voting 의 결과 it 이 선정되면서 그 다음 step 값에 영향을 주었다.
 
 ### 4. Keras Seq2Seq 활용 번역 예제
 
