@@ -396,6 +396,10 @@ def evaluate(sentence):
 
 ---
 
+**이 부분 관련해서 새로운 Repository 로 다시 정리 👉 [Attention-Ensemble-Translation](https://github.com/aaajeong/Attention-Ensemble-Translation)**
+
+
+
 **1) 코드 - nmt_with_attention_Ensemble.ipynb**
 
 [데이터셋 / 코드](https://drive.google.com/drive/u/0/folders/1qcxwwB53GDOR2mxSADO2rbGQ9VpbMSME)
